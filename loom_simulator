@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>織布模擬器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #f0e6d2;
+            overflow-x: hidden;
+        }
+
+        .loom-frame {
+            position: relative;
+            width: 100%;
+            height: 500px;
+            background-color: #8d6e63;
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+            overflow: hidden;
+            border: 12px solid #5d4037;
+        }
+
+        .loom-body {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #a1887f;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .heddles-area {
+            position: relative;
+            height: 80px;
+            width: 100%;
+            background-color: #795548;
+            border-bottom: 4px solid #5d4037;
+        }
+
+        .heddle {
+            position: absolute;
+            width: 100%;
+            height: 20px;
+            background-color: #8d6e63;
+            top: 30px;
+            display: flex;
+            justify-content: space-around;
+            transition: transform 0.3s ease;
+        }
+
+        .heddle-eye {
+            width: 6px;
+            height: 20px;
+            background-color: #5d4037;
+            border-radius: 3px;
+            position: relative;
+        }
+
+        .heddle-eye::before {
+            content: '';
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background-color: #f0e6d2;
+            border-radius: 50%;
+            top: 8px;
+            left: 1px;
+        }
+
+        .heddle.lifted {
+            transform: translateY(-15px);
+        }
+
+        .heddle.lowered {
+            transform: translateY(15px);
+        }
+
+        .weaving-area {
+            position: relative;
+            flex-grow: 1;
+            background-color: #d7ccc8;
+            overflow: hidden;
+        }
+
+        .warp-threads {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: space-around;
+        }
+
+        .warp {
+            width: 2px;
+            height: 100%;
+            background-color: #5d4037;
+            position: relative;
+            z-index: 1;
+        }
+
+        .warp.even {
+            background-color: #8d6e63;
+        }
+
+        .warp.lifted {
+            z-index: 3;
+        }
+
+        .warp.lowered {
+            z-index: 1;
+        }
+
+        .shed {
+            position: absolute;
+            width: 100%;
+            height: 30px;
+            top: 50%;
+            transform: translateY(-50%);
+            background-color: rgba(240, 230, 210, 0.3);
+            display: none;
+            z-index: 2;
+        }
+
+        .shed.active {
+            display: block;
+        }
+
+        .weft-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 2;
+        }
+
+        .weft {
+            position: absolute;
+            height: 4px;
+            background-color: #3949ab;
+            z-index: 2;
+            transform-origin: left center;
+            transition: width 0.3s ease-out;
+        }
+
+        .shuttle {
+            position: absolute;
+            width: 40px;
+            height: 16px;
+            background-color: #795548;
+            border-radius: 40% 40% 20% 20%;
+            transform: translateY(-50%);
+            z-index: 10;
+            transition: left 0.5s ease-out;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            cursor: grab;
+        }
+
+        .shuttle::before {
+            content: '';
+            position: absolute;
+            width: 30px;
+            height: 10px;
+            background-color: #a1887f;
+            border-radius: 30% 30% 15% 15%;
+            top: 3px;
+            left: 5px;
+        }
+
+        .shuttle::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 6px;
+            background-color: #d7ccc8;
+            border-radius: 20% 20% 10% 10%;
+            top: 5px;
+            left: 10px;
+        }
+
+        .reed {
+            position: absolute;
+            width: 100%;
+            height: 40px;
+            background-color: #8d6e63;
+            bottom: 0;
+            display: flex;
+            justify-content: space-around;
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+            z-index: 4;
+            box-shadow: 0 -4px 8px rgba(0,0,0,0.2);
+        }
+
+        .reed.active {
+            transform: translateY(0);
+        }
+
+        .reed-wire {
+            width: 1px;
+            height: 100%;
+            background-color: #5d4037;
+        }
+
+        .cloth {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: #e8eaf6;
+            background-image:
+                repeating-linear-gradient(
+                    0deg,
+                    rgba(57, 73, 171, 0.7) 0px,
+                    rgba(57, 73, 171, 0.7) 4px,
+                    rgba(57, 73, 171, 0.1) 4px,
+                    rgba(57, 73, 171, 0.1) 12px
+                ),
+                repeating-linear-gradient(
+                    90deg,
+                    rgba(93, 64, 55, 0.4) 0px,
+                    rgba(93, 64, 55, 0.4) 2px,
+                    rgba(93, 64, 55, 0.1) 2px,
+                    rgba(93, 64, 55, 0.1) 10px
+                );
+            transition: height 0.3s ease;
+            z-index: 1;
+        }
+
+        .treadle-area {
+            height: 60px;
+            width: 100%;
+            background-color: #795548;
+            border-top: 4px solid #5d4037;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            cursor: pointer;
+        }
+
+        .treadle {
+            width: 80px;
+            height: 20px;
+            background-color: #5d4037;
+            border-radius: 4px;
+            transition: transform 0.3s ease;
+            box-shadow: 0 4px 0 #3e2723;
+        }
+
+        .treadle.pressed {
+            transform: translateY(4px);
+            box-shadow: 0 0 0 #3e2723;
+        }
+
+        .beater {
+            position: absolute;
+            width: 100%;
+            height: 30px;
+            background-color: #8d6e63;
+            top: 100px;
+            transform: translateY(-100px);
+            transition: transform 0.3s ease;
+            z-index: 5;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .beater.active {
+            transform: translateY(0);
+        }
+
+        .beater-handle {
+            width: 60%;
+            height: 10px;
+            background-color: #5d4037;
+            border-radius: 5px;
+        }
+
+        .instruction {
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .btn {
+            transition: all 0.2s;
+        }
+
+        .btn:active {
+            transform: translateY(2px);
+        }
+
+        .progress-bar {
+            height: 8px;
+            transition: width 0.1s linear;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .pulse {
+            animation: pulse 0.5s infinite;
+        }
+
+        .gesture-hint {
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 100;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .gesture-hint.visible {
+            opacity: 1;
+        }
+
+        .gesture-area {
+            position: absolute;
+            z-index: 20;
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .gesture-area.shedding {
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 80px;
+        }
+
+        .gesture-area.battening {
+            top: 80px;
+            left: 0;
+            width: 100%;
+            height: 60px;
+        }
+
+        .gesture-area.picking {
+            top: 140px;
+            left: 0;
+            width: 100%;
+            height: calc(100% - 200px);
+        }
+
+        .gesture-area.highlight {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+            }
+
+            .btn {
+                margin-bottom: 8px;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+    <div class="max-w-4xl w-full bg-white rounded-xl shadow-lg p-6 relative">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-indigo-800">織布模擬器</h1>
+            <div class="flex items-center gap-4">
+                <div class="text-center">
+                    <p class="text-sm text-gray-600">時間</p>
+                    <p id="timer" class="text-2xl font-bold text-red-600">60</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-sm text-gray-600">分數</p>
+                    <p id="score" class="text-2xl font-bold text-green-600">0</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="instruction p-4 mb-6">
+            <h2 class="font-bold text-lg mb-2">當前步驟：<span id="current-step" class="text-indigo-600">準備開始</span></h2>
+            <p id="instruction-text" class="text-gray-700">點擊「開始遊戲」按鈕開始織布！</p>
+        </div>
+
+        <div class="loom-frame mb-6 relative">
+            <div class="loom-body">
+                <div class="heddles-area" id="heddles-area">
+                    <div class="heddle" id="heddle-1">
+                        <!-- 綜絖眼睛將由JS動態生成 -->
+                    </div>
+                    <div class="heddle" id="heddle-2">
+                        <!-- 綜絖眼睛將由JS動態生成 -->
+                    </div>
+                </div>
+
+                <div class="weaving-area" id="weaving-area">
+                    <div class="warp-threads" id="warp-container"></div>
+                    <div class="shed" id="shed"></div>
+                    <div class="weft-container" id="weft-container"></div>
+                    <div class="shuttle" id="shuttle" style="display: none; top: 50%; left: 0;"></div>
+                    <div class="beater" id="beater">
+                        <div class="beater-handle"></div>
+                    </div>
+                    <div class="reed" id="reed"></div>
+                    <div class="cloth" id="cloth" style="height: 0;"></div>
+                </div>
+
+                <div class="treadle-area" id="treadle-area">
+                    <div class="treadle" id="treadle-1"></div>
+                    <div class="treadle" id="treadle-2"></div>
+                </div>
+            </div>
+
+            <!-- 手勢區域 -->
+            <div class="gesture-area shedding" id="shedding-area"></div>
+            <div class="gesture-area battening" id="battening-area"></div>
+            <div class="gesture-area picking" id="picking-area"></div>
+
+            <!-- 手勢提示 -->
+            <div class="gesture-hint" id="shedding-hint">點擊下方踏板進行開口</div>
+            <div class="gesture-hint" id="battening-hint">往下滑動打緯桿進行打緯</div>
+            <div class="gesture-hint" id="picking-hint">左右滑動梭子區域進行引緯</div>
+        </div>
+
+        <div class="flex justify-center gap-4 mb-6">
+            <button id="start-btn" class="btn bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg shadow">
+                開始遊戲
+            </button>
+            <button id="auto-btn" class="btn bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-6 rounded-lg shadow hidden">
+                自動織布
+            </button>
+        </div>
+
+        <div class="progress-container w-full bg-gray-200 rounded-full h-8 mb-4">
+            <div id="progress-bar" class="progress-bar bg-indigo-600 rounded-full" style="width: 0%"></div>
+        </div>
+
+        <div class="text-center text-gray-600">
+            <p class="mb-2">織布是一個需要耐心和技巧的過程，按照正確的順序完成每個步驟！</p>
+            <p>操作方式：點擊下方踏板區域(開口)、左右滑動梭子區域(引緯)、往下滑動打緯桿區域(打緯)</p>
+            <p>鍵盤控制：空白鍵(開口)、左右方向鍵(引緯)、下方向鍵(打緯)</p>
+        </div>
+    </div>
+
+    <!-- 遊戲結束彈窗 -->
+    <div id="game-over-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-xl p-8 max-w-md w-full shadow-2xl">
+            <h2 class="text-2xl font-bold text-center mb-4">遊戲結束！</h2>
+            <p class="text-xl text-center mb-6">你的分數：<span id="final-score" class="font-bold text-green-600">0</span></p>
+            <p class="text-gray-700 mb-6 text-center">你成功織出了 <span id="rows-completed" class="font-bold">0</span> 行布料！</p>
+            <div class="flex justify-center">
+                <button id="play-again-btn" class="btn bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow">
+                    再玩一次
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 遊戲變數
+            let gameActive = false;
+            let score = 0;
+            let timeLeft = 60;
+            let timer;
+            let currentStep = 'none';
+            let rowsCompleted = 0;
+            let currentRow = 0;
+            let shuttlePosition = 'left';
+            let warpsLifted = false;
+            let currentPattern = 0; // 0: 平織, 1: 斜紋織
+            let weftWidth = 0;
+            let touchStartX = 0;
+            let touchStartY = 0;
+            let autoWeaveActive = false;
+            let autoWeaveTimer = null;
+
+            // DOM 元素
+            const startBtn = document.getElementById('start-btn');
+            const autoBtn = document.getElementById('auto-btn');
+            const timerEl = document.getElementById('timer');
+            const scoreEl = document.getElementById('score');
+            const currentStepEl = document.getElementById('current-step');
+            const instructionTextEl = document.getElementById('instruction-text');
+            const progressBar = document.getElementById('progress-bar');
+            const warpContainer = document.getElementById('warp-container');
+            const weftContainer = document.getElementById('weft-container');
+            const shuttleEl = document.getElementById('shuttle');
+            const clothEl = document.getElementById('cloth');
+            const gameOverModal = document.getElementById('game-over-modal');
+            const finalScoreEl = document.getElementById('final-score');
+            const rowsCompletedEl = document.getElementById('rows-completed');
+            const playAgainBtn = document.getElementById('play-again-btn');
+            const heddle1 = document.getElementById('heddle-1');
+            const heddle2 = document.getElementById('heddle-2');
+            const treadle1 = document.getElementById('treadle-1');
+            const treadle2 = document.getElementById('treadle-2');
+            const shed = document.getElementById('shed');
+            const beater = document.getElementById('beater');
+            const reed = document.getElementById('reed');
+
+            // 手勢區域
+            const sheddingArea = document.getElementById('shedding-area');
+            const batteningArea = document.getElementById('battening-area');
+            const pickingArea = document.getElementById('picking-area');
+            const treadleArea = document.getElementById('treadle-area');
+
+            // 手勢提示
+            const sheddingHint = document.getElementById('shedding-hint');
+            const batteningHint = document.getElementById('battening-hint');
+            const pickingHint = document.getElementById('picking-hint');
+
+            // 創建經線和綜絖眼
+            function createLoomElements() {
+                warpContainer.innerHTML = '';
+                heddle1.innerHTML = '';
+                heddle2.innerHTML = '';
+                reed.innerHTML = '';
+
+                const warpCount = 30;
+
+                for (let i = 0; i < warpCount; i++) {
+                    // 創建經線
+                    const warp = document.createElement('div');
+                    warp.className = i % 2 === 0 ? 'warp even' : 'warp';
+                    warp.dataset.index = i;
+                    warpContainer.appendChild(warp);
+
+                    // 創建綜絖眼
+                    if (i % 2 === 0) {
+                        const heddleEye = document.createElement('div');
+                        heddleEye.className = 'heddle-eye';
+                        heddle1.appendChild(heddleEye);
+
+                        const emptyEye = document.createElement('div');
+                        emptyEye.style.width = '6px';
+                        heddle2.appendChild(emptyEye);
+                    } else {
+                        const emptyEye = document.createElement('div');
+                        emptyEye.style.width = '6px';
+                        heddle1.appendChild(emptyEye);
+
+                        const heddleEye = document.createElement('div');
+                        heddleEye.className = 'heddle-eye';
+                        heddle2.appendChild(heddleEye);
+                    }
+
+                    // 創建筘齒
+                    const reedWire = document.createElement('div');
+                    reedWire.className = 'reed-wire';
+                    reed.appendChild(reedWire);
+                }
+            }
+
+            // 更新指示
+            function updateInstruction(step) {
+                currentStep = step;
+                currentStepEl.textContent = getStepName(step);
+
+                // 隱藏所有提示
+                sheddingHint.classList.remove('visible');
+                batteningHint.classList.remove('visible');
+                pickingHint.classList.remove('visible');
+
+                // 移除所有高亮
+                sheddingArea.classList.remove('highlight');
+                batteningArea.classList.remove('highlight');
+                pickingArea.classList.remove('highlight');
+                treadleArea.classList.remove('highlight');
+
+                switch(step) {
+                    case 'shedding':
+                        instructionTextEl.textContent = '點擊下方踏板，分開經線形成梭口';
+                        sheddingHint.classList.add('visible');
+                        sheddingHint.style.top = '440px';
+                        sheddingHint.style.left = '50%';
+                        sheddingHint.style.transform = 'translateX(-50%)';
+                        treadleArea.classList.add('highlight');
+                        break;
+                    case 'picking-left':
+                        instructionTextEl.textContent = '向左滑動梭子區域，將梭子從右向左移動穿過梭口';
+                        pickingHint.classList.add('visible');
+                        pickingHint.style.top = '200px';
+                        pickingHint.style.left = '50%';
+                        pickingHint.style.transform = 'translateX(-50%)';
+                        pickingArea.classList.add('highlight');
+                        break;
+                    case 'picking-right':
+                        instructionTextEl.textContent = '向右滑動梭子區域，將梭子從左向右移動穿過梭口';
+                        pickingHint.classList.add('visible');
+                        pickingHint.style.top = '200px';
+                        pickingHint.style.left = '50%';
+                        pickingHint.style.transform = 'translateX(-50%)';
+                        pickingArea.classList.add('highlight');
+                        break;
+                    case 'battening':
+                        instructionTextEl.textContent = '往下滑動打緯桿區域，將緯線推緊';
+                        batteningHint.classList.add('visible');
+                        batteningHint.style.top = '110px';
+                        batteningHint.style.left = '50%';
+                        batteningHint.style.transform = 'translateX(-50%)';
+                        batteningArea.classList.add('highlight');
+                        break;
+                    default:
+                        instructionTextEl.textContent = '點擊「開始遊戲」按鈕開始織布！';
+                }
+            }
+
+            // 獲取步驟名稱
+            function getStepName(step) {
+                switch(step) {
+                    case 'shedding': return '開口';
+                    case 'picking-left': return '引緯（左）';
+                    case 'picking-right': return '引緯（右）';
+                    case 'battening': return '打緯';
+                    default: return '準備開始';
+                }
+            }
+
+            // 開始遊戲
+            function startGame() {
+                gameActive = true;
+                score = 0;
+                timeLeft = 60;
+                rowsCompleted = 0;
+                currentRow = 0;
+                autoWeaveActive = false;
+
+                // 重置UI
+                scoreEl.textContent = score;
+                timerEl.textContent = timeLeft;
+                progressBar.style.width = '0%';
+                clothEl.style.height = '0px';
+
+                // 創建織布機元素
+                createLoomElements();
+
+                // 設置初始步驟
+                updateInstruction('shedding');
+
+                // 隱藏開始按鈕，顯示自動織布按鈕
+                startBtn.style.display = 'none';
+                autoBtn.style.display = 'block';
+                autoBtn.textContent = '自動織布';
+                autoBtn.classList.remove('bg-red-500', 'hover:bg-red-600');
+                autoBtn.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+
+                // 開始計時器
+                timer = setInterval(function() {
+                    timeLeft--;
+                    timerEl.textContent = timeLeft;
+
+                    if (timeLeft <= 0) {
+                        endGame();
+                    }
+                }, 1000);
+            }
+
+            // 結束遊戲
+            function endGame() {
+                gameActive = false;
+                clearInterval(timer);
+                stopAutoWeave();
+
+                // 顯示結果
+                finalScoreEl.textContent = score;
+                rowsCompletedEl.textContent = rowsCompleted;
+                gameOverModal.classList.remove('hidden');
+
+                // 重置UI
+                updateInstruction('none');
+                startBtn.style.display = 'block';
+                autoBtn.style.display = 'none';
+                shuttleEl.style.display = 'none';
+                shed.classList.remove('active');
+                beater.classList.remove('active');
+                reed.classList.remove('active');
+                heddle1.classList.remove('lifted', 'lowered');
+                heddle2.classList.remove('lifted', 'lowered');
+                treadle1.classList.remove('pressed');
+                treadle2.classList.remove('pressed');
+
+                // 隱藏所有提示
+                sheddingHint.classList.remove('visible');
+                batteningHint.classList.remove('visible');
+                pickingHint.classList.remove('visible');
+
+                // 移除所有高亮
+                sheddingArea.classList.remove('highlight');
+                batteningArea.classList.remove('highlight');
+                pickingArea.classList.remove('highlight');
+                treadleArea.classList.remove('highlight');
+
+                // 重置經線
+                const warps = document.querySelectorAll('.warp');
+                warps.forEach(warp => warp.classList.remove('lifted', 'lowered'));
+            }
+
+            // 執行開口動作
+            function performShedding() {
+                if (currentStep !== 'shedding' || !gameActive) return;
+
+                // 決定哪個踏板被踩下
+                const treadleNum = currentRow % 2 === 0 ? 1 : 2;
+
+                // 踩下踏板
+                treadle1.classList.toggle('pressed', treadleNum === 1);
+                treadle2.classList.toggle('pressed', treadleNum === 2);
+
+                // 移動綜絖
+                if (treadleNum === 1) {
+                    heddle1.classList.add('lifted');
+                    heddle1.classList.remove('lowered');
+                    heddle2.classList.add('lowered');
+                    heddle2.classList.remove('lifted');
+                } else {
+                    heddle1.classList.add('lowered');
+                    heddle1.classList.remove('lifted');
+                    heddle2.classList.add('lifted');
+                    heddle2.classList.remove('lowered');
+                }
+
+                // 移動經線
+                const warps = document.querySelectorAll('.warp');
+                warps.forEach((warp, index) => {
+                    if (treadleNum === 1) {
+                        if (index % 2 === 0) {
+                            warp.classList.add('lifted');
+                            warp.classList.remove('lowered');
+                        } else {
+                            warp.classList.add('lowered');
+                            warp.classList.remove('lifted');
+                        }
+                    } else {
+                        if (index % 2 === 0) {
+                            warp.classList.add('lowered');
+                            warp.classList.remove('lifted');
+                        } else {
+                            warp.classList.add('lifted');
+                            warp.classList.remove('lowered');
+                        }
+                    }
+                });
+
+                // 顯示梭口
+                shed.classList.add('active');
+
+                warpsLifted = true;
+
+                // 更新進度
+                progressBar.style.width = '25%';
+
+                // 設置下一步
+                shuttlePosition = currentRow % 2 === 0 ? 'left' : 'right';
+                updateInstruction(shuttlePosition === 'left' ? 'picking-right' : 'picking-left');
+
+                // 顯示梭子
+                shuttleEl.style.display = 'block';
+                shuttleEl.style.left = shuttlePosition === 'left' ? '0' : 'calc(100% - 40px)';
+            }
+
+            // 執行引緯動作
+            function performPicking(direction) {
+                if (!gameActive) return;
+                if ((direction === 'right' && currentStep !== 'picking-right') ||
+                    (direction === 'left' && currentStep !== 'picking-left')) return;
+
+                // 移動梭子
+                const newPosition = direction === 'right' ? 'calc(100% - 40px)' : '0';
+                shuttleEl.style.left = newPosition;
+                shuttlePosition = direction === 'right' ? 'right' : 'left';
+
+                // 創建緯線
+                const weft = document.createElement('div');
+                weft.className = 'weft';
+                weft.style.top = `${50}%`;
+                weft.style.width = '0';
+                weftContainer.appendChild(weft);
+
+                // 動畫緯線
+                setTimeout(() => {
+                    if (direction === 'right') {
+                        weft.style.left = '0';
+                        weft.style.width = '100%';
+                    } else {
+                        weft.style.left = '0';
+                        weft.style.width = '100%';
+                    }
+
+                    // 更新進度
+                    progressBar.style.width = '50%';
+
+                    // 設置下一步
+                    updateInstruction('battening');
+                }, 100);
+            }
+
+            // 用來防止重複計分的標記和動畫同步
+            let scoringInProgress = false;
+
+            // 通知自動織布動畫完成的回調，供自動織布模式使用
+            let batteningCompletionCallback = null;
+
+            // 執行打緯動作
+            function performBattening() {
+                if (currentStep !== 'battening' || !gameActive) return;
+
+                // 顯示打緯動作
+                beater.classList.add('active');
+
+                setTimeout(() => {
+                    // 移動筘
+                    reed.classList.add('active');
+
+                    // 更新進度
+                    progressBar.style.width = '75%';
+
+                    setTimeout(() => {
+                        // 隱藏梭口
+                        shed.classList.remove('active');
+
+                        // 重置綜絖和踏板
+                        heddle1.classList.remove('lifted', 'lowered');
+                        heddle2.classList.remove('lifted', 'lowered');
+                        treadle1.classList.remove('pressed');
+                        treadle2.classList.remove('pressed');
+
+                        // 重置經線
+                        const warps = document.querySelectorAll('.warp');
+                        warps.forEach(warp => warp.classList.remove('lifted', 'lowered'));
+
+                        // 隱藏打緯桿和筘
+                        beater.classList.remove('active');
+                        reed.classList.remove('active');
+
+                        // 防止重複計分和重複增加布料，使用標記確保每次打緯只執行一次
+                        if (!scoringInProgress) {
+                            scoringInProgress = true;
+
+                            // 增加布料高度
+                            currentRow++;
+                            const clothHeight = Math.min(300, currentRow * 12);
+                            clothEl.style.height = `${clothHeight}px`;
+
+                            // 增加分數
+                            rowsCompleted++;
+                            score += 10;
+                            scoreEl.textContent = score;
+
+                            // 重置標記的計時器延遲要比所有其他操作的計時器更長
+                            setTimeout(() => {
+                                scoringInProgress = false;
+                            }, 1000);
+                        }
+
+                        // 更新進度
+                        progressBar.style.width = '100%';
+
+                        // 重置為下一行
+                        setTimeout(() => {
+                            progressBar.style.width = '0%';
+                            updateInstruction('shedding');
+
+                            // 保持梭子顯示
+                            // shuttleEl.style.display = 'none';  // 不再隱藏梭子
+
+                            warpsLifted = false;
+
+                            // 如果有設置完成回調，調用它通知自動織布系統這個打緯動作已完全完成
+                            if (batteningCompletionCallback) {
+                                const callback = batteningCompletionCallback;
+                                batteningCompletionCallback = null; // 清除回調以避免重複調用
+                                callback();
+                            }
+                        }, 300);
+                    }, 300);
+                }, 300);
+            }
+
+            // 手勢控制 - 更改為使用踏板區域進行開口
+            treadleArea.addEventListener('click', function(e) {
+                if (currentStep === 'shedding' && gameActive) {
+                    performShedding();
+                }
+            });
+
+            // 移除舊的開口控制事件監聽器
+            sheddingArea.removeEventListener('click', performShedding);
+
+            // 手勢控制 - 更改為向下滑動打緯桿
+            batteningArea.addEventListener('touchstart', function(e) {
+                if (!gameActive || currentStep !== 'battening') return;
+                touchStartY = e.touches[0].clientY;
+                e.preventDefault();
+            });
+
+            batteningArea.addEventListener('touchmove', function(e) {
+                if (!gameActive || currentStep !== 'battening') return;
+                e.preventDefault();
+            });
+
+            batteningArea.addEventListener('touchend', function(e) {
+                if (!gameActive || currentStep !== 'battening') return;
+                const touchEndY = e.changedTouches[0].clientY;
+                const diffY = touchEndY - touchStartY;
+
+                if (diffY > 30) { // 向下滑動超過30px就觸發打緯
+                    performBattening();
+                }
+                e.preventDefault();
+            });
+
+            // 滑鼠滑動模擬打緯
+            batteningArea.addEventListener('mousedown', function(e) {
+                if (!gameActive || currentStep !== 'battening') return;
+                touchStartY = e.clientY;
+            });
+
+            document.addEventListener('mouseup', function(e) {
+                if (!gameActive || currentStep !== 'battening' || touchStartY === 0) return;
+                const diffY = e.clientY - touchStartY;
+
+                if (diffY > 30) { // 向下滑動超過30px就觸發打緯
+                    performBattening();
+                }
+                touchStartY = 0;
+            });
+
+            // 移除舊的點擊打緯事件
+            batteningArea.removeEventListener('click', performBattening);
+
+            // 手勢控制 - 引緯區域
+            pickingArea.addEventListener('touchstart', function(e) {
+                if (!gameActive) return;
+                touchStartX = e.touches[0].clientX;
+                e.preventDefault();
+            });
+
+            pickingArea.addEventListener('touchmove', function(e) {
+                if (!gameActive) return;
+                e.preventDefault();
+            });
+
+            pickingArea.addEventListener('touchend', function(e) {
+                if (!gameActive) return;
+                const touchEndX = e.changedTouches[0].clientX;
+                const diffX = touchEndX - touchStartX;
+
+                if (Math.abs(diffX) > 30) { // 確保是有意義的滑動
+                    if (diffX > 0 && currentStep === 'picking-right') {
+                        performPicking('right');
+                    } else if (diffX < 0 && currentStep === 'picking-left') {
+                        performPicking('left');
+                    }
+                }
+                e.preventDefault();
+            });
+
+            // 滑鼠滑動模擬引緯
+            pickingArea.addEventListener('mousedown', function(e) {
+                if (!gameActive) return;
+                touchStartX = e.clientX;
+                pickingArea.style.cursor = 'grabbing';
+            });
+
+            document.addEventListener('mouseup', function(e) {
+                if (!gameActive || touchStartX === 0) return;
+                const diffX = e.clientX - touchStartX;
+
+                if (Math.abs(diffX) > 30) { // 確保是有意義的滑動
+                    if (diffX > 0 && currentStep === 'picking-right') {
+                        performPicking('right');
+                    } else if (diffX < 0 && currentStep === 'picking-left') {
+                        performPicking('left');
+                    }
+                }
+                touchStartX = 0;
+                pickingArea.style.cursor = 'grab';
+            });
+
+            // 用於追蹤動畫是否正在進行中
+            let animationInProgress = false;
+
+            // 自動織布功能
+            function startAutoWeave() {
+                if (!gameActive) return;
+
+                autoWeaveActive = true;
+                autoBtn.textContent = '停止自動';
+                autoBtn.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+                autoBtn.classList.add('bg-red-500', 'hover:bg-red-600');
+
+                // 添加自動織布標籤
+                instructionTextEl.textContent = '自動織布已啟動 - 正在模擬動力織布機';
+
+                // 執行下一步自動織布
+                executeNextAutoWeaveStep();
+            }
+
+            function stopAutoWeave() {
+                autoWeaveActive = false;
+                if (autoWeaveTimer) {
+                    clearTimeout(autoWeaveTimer);
+                    autoWeaveTimer = null;
+                }
+
+                if (gameActive) {
+                    autoBtn.textContent = '自動織布';
+                    autoBtn.classList.remove('bg-red-500', 'hover:bg-red-600');
+                    autoBtn.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+                    updateInstruction(currentStep);
+                }
+            }
+
+            function executeNextAutoWeaveStep() {
+                if (!autoWeaveActive || !gameActive || animationInProgress) return;
+
+                animationInProgress = true;
+
+                // 根據當前步驟執行相應操作
+                switch (currentStep) {
+                    case 'shedding':
+                        performShedding();
+                        // 等待開口動作完成後再安排下一步，但加速3倍
+                        autoWeaveTimer = setTimeout(() => {
+                            animationInProgress = false;
+                            executeNextAutoWeaveStep();
+                        }, 178); // 534/3 ≈ 178
+                        break;
+                    case 'picking-right':
+                        performPicking('right');
+                        // 等待引緯動作完成後再安排下一步，但加速3倍
+                        autoWeaveTimer = setTimeout(() => {
+                            animationInProgress = false;
+                            executeNextAutoWeaveStep();
+                        }, 178); // 534/3 ≈ 178
+                        break;
+                    case 'picking-left':
+                        performPicking('left');
+                        // 等待引緯動作完成後再安排下一步，但加速3倍
+                        autoWeaveTimer = setTimeout(() => {
+                            animationInProgress = false;
+                            executeNextAutoWeaveStep();
+                        }, 178); // 534/3 ≈ 178
+                        break;
+                    case 'battening':
+                        // 使用Promise和回調來確保打緯動作完全完成後再繼續
+                        // 不使用固定的延遲時間，而是等待真正的動畫完成
+                        const promise = new Promise((resolve) => {
+                            batteningCompletionCallback = resolve;
+                        });
+
+                        performBattening();
+
+                        // 當打緯動作完全完成時，回調函數會被調用，Promise會被解析
+                        promise.then(() => {
+                            animationInProgress = false;
+                            // 立即進行下一步（不需要額外延遲，因為已經等待了真正的動畫完成）
+                            executeNextAutoWeaveStep();
+                        });
+                        break;
+                }
+            }
+
+            // 按鈕事件監聽
+            startBtn.addEventListener('click', startGame);
+            autoBtn.addEventListener('click', function() {
+                if (autoWeaveActive) {
+                    stopAutoWeave();
+                } else {
+                    startAutoWeave();
+                }
+            });
+            playAgainBtn.addEventListener('click', () => {
+                gameOverModal.classList.add('hidden');
+                startGame();
+            });
+
+            // 鍵盤控制
+            document.addEventListener('keydown', function(e) {
+                if (!gameActive) return;
+
+                switch(e.key) {
+                    case ' ':
+                        performShedding();
+                        break;
+                    case 'ArrowLeft':
+                        performPicking('left');
+                        break;
+                    case 'ArrowRight':
+                        performPicking('right');
+                        break;
+                    case 'ArrowDown':
+                        performBattening();
+                        break;
+                }
+            });
+
+            // 初始化
+            createLoomElements();
+
+            // 設置提示位置
+            sheddingHint.style.top = '440px'; // 修改到踏板區域
+            sheddingHint.style.left = '50%';
+            sheddingHint.style.transform = 'translateX(-50%)';
+
+            batteningHint.style.top = '110px';
+            batteningHint.style.left = '50%';
+            batteningHint.style.transform = 'translateX(-50%)';
+
+            pickingHint.style.top = '200px';
+            pickingHint.style.left = '50%';
+            pickingHint.style.transform = 'translateX(-50%)';
+        });
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'93e9ed8086d54a5d',t:'MTc0NzA1MzAzMS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
